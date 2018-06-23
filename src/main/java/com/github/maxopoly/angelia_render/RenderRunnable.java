@@ -156,8 +156,8 @@ public class RenderRunnable implements Runnable {
         glClearColor(0.529f, 0.808f, 0.922f, 0.0f);
 
         GL11.glMatrixMode(GL11.GL_PROJECTION);
-
         GL11.glLoadIdentity();
+        GL11.glFrustum(-1f, 1f, -1f, 1f, 1f, 128f);
         GL11.glMatrixMode(GL11.GL_MODELVIEW);
         GL11.glLoadIdentity();
         GL11.glShadeModel(GL11.GL_SMOOTH);
@@ -172,19 +172,20 @@ public class RenderRunnable implements Runnable {
         while (!glfwWindowShouldClose(window)) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
 
+            GL11.glPushMatrix();
             GL11.glLoadIdentity();
 
-            GL11.glFrustum(-1f, 1f, -1f, 1f, 1f, 50f);
 
             GL11.glTranslatef(-cameraX, -cameraY, -cameraZ);
             GL11.glRotatef(cameraRotX, 1, 0, 0);
-            //GL11.glRotatef(cameraRotY, 0, 1, 0);
-            //GL11.glRotatef(cameraRotZ, 0, 0, 1);
+            GL11.glRotatef(cameraRotY, 0, 1, 0);
+            GL11.glRotatef(cameraRotZ, 0, 0, 1);
 
-            GL11.glPushMatrix();
 
             vboHandler.popQueue();
             vboHandler.render();
+
+            GL11.glPopMatrix();
 
 
             //logger.info(String.format("Camera pos: %f, %f, %f - Camera angle: %f, %f, %f", cameraX, cameraY, cameraZ, cameraRotX, cameraRotY, cameraRotZ));
