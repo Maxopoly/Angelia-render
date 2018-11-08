@@ -9,7 +9,11 @@ import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
+import com.github.maxopoly.angelia_render.parse.PackLoader;
+import com.github.maxopoly.angelia_render.parse.ResourcePackParseException;
 import com.github.maxopoly.angeliacore.model.location.Location;
+
+import java.io.File;
 import java.nio.IntBuffer;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.Version;
@@ -143,6 +147,15 @@ public class RenderRunnable implements Runnable {
 
         //allow actually doing stuff
         GL.createCapabilities();
+        
+        vboHandler.loadTexture();
+        
+        try {
+			new PackLoader().load(logger, new File("/home/max/.minecraft/versions/1.12.2/"));
+		} catch (ResourcePackParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     }
 
     private void loop() {
@@ -186,8 +199,7 @@ public class RenderRunnable implements Runnable {
             vboHandler.render();
 
             GL11.glPopMatrix();
-
-
+            
             //logger.info(String.format("Camera pos: %f, %f, %f - Camera angle: %f, %f, %f", cameraX, cameraY, cameraZ, cameraRotX, cameraRotY, cameraRotZ));
 
             glfwSwapBuffers(window); // swap the color buffers
