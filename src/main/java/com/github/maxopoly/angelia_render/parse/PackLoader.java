@@ -14,8 +14,19 @@ import javax.imageio.ImageIO;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONObject;
 
+import com.github.maxopoly.angelia_render.RenderModuleImpl;
+
 public class PackLoader {
-	
+
+	public static void main(String [] args) {
+		try {
+			new PackLoader().load(null, new File ("/home/max/.minecraft/versions/1.12.2/"));
+		} catch (ResourcePackParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
 	public void load(Logger logger, File f) throws ResourcePackParseException {
 		if (!f.isDirectory()) {
 			throw new ResourcePackParseException("Given path was not an existing directory");
@@ -44,8 +55,15 @@ public class PackLoader {
 		Map<String, JSONObject> blockStateMap = loadJSONFolder("", blockStates, logger);
 		Map<String, JSONObject> modelMap = loadJSONFolder("", models, logger);
 		modelMap = resolveModelDependencies(modelMap, logger);
+		parseBlockStates(blockStateMap, logger);
 	}
-	
+
+	private void parseBlockStates(Map<String, JSONObject> jsonMap, Logger logger) throws ResourcePackParseException {
+		for(Entry<String, JSONObject> entry : jsonMap.entrySet()) {
+			RenderModuleImpl impl = new RenderModuleImpl(entry.getKey(), entry.getValue(), logger);
+		}
+	}
+
 	private Map<String, JSONObject> loadJSONFolder(String prefix, File folder, Logger logger) throws ResourcePackParseException {
 		Map<String, JSONObject> map = new HashMap<>();
 		for(File f : folder.listFiles()) {
@@ -71,7 +89,7 @@ public class PackLoader {
 		}
 		return map;
 	}
-	
+
 	private Map<String, JSONObject> resolveModelDependencies(Map<String, JSONObject> map, Logger logger) {
 		Map<String, JSONObject> result = new HashMap<>();
 		for(Entry<String,JSONObject> entry : map.entrySet()) {
@@ -79,7 +97,8 @@ public class PackLoader {
 			while(current.has("parent")) {
 				JSONObject parent = map.get(current.getString("parent"));
 				if (parent == null) {
-					logger.warn("Could not find parent  " + current.getString("parent") + ". Incomplete parent resolve for model: " + entry.getKey());
+					//TODO TODO
+					//logger.warn("Could not find parent  " + current.getString("parent") + ". Incomplete parent resolve for model: " + entry.getKey());
 					break;
 				}
 				current.remove("parent");
@@ -89,7 +108,7 @@ public class PackLoader {
 		}
 		return result;
 	}
-	
+
 	private static Map<String, BufferedImage> loadTextures(String prefix, File folder, Logger logger) throws ResourcePackParseException {
 		Map<String, BufferedImage> result = new HashMap<>();
 		for(File f : folder.listFiles()) {
@@ -111,7 +130,7 @@ public class PackLoader {
 		}
 		return result;
 	}
-	
+
 	private JSONObject mergeJSON(JSONObject parent, JSONObject child) {
 		//dirty way to deep copy
 		JSONObject result = new JSONObject(parent.toString());
@@ -129,11 +148,10 @@ public class PackLoader {
 			//jsons with same key exist, need to deep merge them
 			result.put(key, mergeJSON(result.getJSONObject(key), child.getJSONObject(key)));
 		}
-		//System.out.println("Merging " + child + " into " + parent + ". Result: " + result);
 		return result;
-		
+
 	}
-	
+
 	/**
 	 * Removes .json from the end of a path
 	 */

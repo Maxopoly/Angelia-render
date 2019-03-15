@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
@@ -13,95 +14,102 @@ import org.json.JSONObject;
 import com.github.maxopoly.angelia_render.parse.RenderableBox;
 import com.github.maxopoly.angelia_render.parse.ResourcePackParseException;
 import com.github.maxopoly.angelia_render.parse.TextureLocation;
+import com.github.maxopoly.angeliacore.block.BlockStateFactory;
 import com.github.maxopoly.angeliacore.block.RenderModule;
+import com.github.maxopoly.angeliacore.block.states.BlockHalfEnum;
+import com.github.maxopoly.angeliacore.block.states.BlockState;
+import com.github.maxopoly.angeliacore.block.states.StairShapeEnum;
 import com.github.maxopoly.angeliacore.model.location.BlockFace;
 
 public class RenderModuleImpl implements RenderModule {
 
-	private RenderableBox [] boxes;
 
-	
-
-	public RenderModuleImpl(JSONObject json, Map<String, TextureLocation> textureMap, Logger logger)
+	public RenderModuleImpl(String identifier, JSONObject json, Logger logger)
 			throws ResourcePackParseException {
-		JSONObject elements = json.optJSONObject("elements");
-		if (elements == null) {
-			throw new ResourcePackParseException("No elements for json " + json);
+		parseBlockState(identifier, json);
+	}
+
+	public void render(BlockState state, List<float[]> coordsToAdd, List<float[]> texCoordsToAdd, boolean[] cullFaces,
+			int[] floatCounter) {
+	}
+
+	private void parseBlockState(String identifier, JSONObject json) {
+		JSONObject variants = json.optJSONObject("variants");
+		if (variants != null) {
+			for (String key : variants.keySet()) {
+				List<RendBlockState> rendBlockStates = new LinkedList<>();
+				JSONArray jsonArray = variants.optJSONArray(key);
+				if (jsonArray != null) {
+					for (int i = 0; i < jsonArray.length(); i++) {
+						JSONObject arrayContent = jsonArray.getJSONObject(i);
+						rendBlockStates.add(parseBlockStateVariant(arrayContent));
+					}
+				} else {
+					rendBlockStates.add(parseBlockStateVariant(variants.getJSONObject(key)));
+				}
+				parseIndexOutOfStateEnums(identifier, key, BlockStateFactory.getStateByTextureIdentifier(identifier));
+			}
 		}
-		JSONObject textures = json.optJSONObject("textures");
-		if (textures == null) {
-			throw new ResourcePackParseException("No textures for json " + json);
-		}
-		List<RenderableBox> boxList = new LinkedList<RenderableBox>();
-		Map<String, String> textureRemapping = parseTextureRemapping(textures);
-		for (String key : elements.keySet()) {
-			JSONObject currentElement = elements.optJSONObject(key);
-			if (currentElement == null) {
-				// value that doesnt belong here, we'll ignore it
+	}
+
+	private int parseIndexOutOfStateEnums(String identifier, String key, BlockState state)  {
+		List <Enum> enumList = new LinkedList<>();
+		String [] parts = key.split(",");
+		for(String part : parts) {
+			if (part.toLowerCase().equals("normal")) {
 				continue;
 			}
-			JSONArray from = currentElement.getJSONArray("from");
-			JSONArray to = currentElement.getJSONArray("to");
-			float lowerX = convertTextureInt(from.getInt(0));
-			float lowerY = convertTextureInt(from.getInt(1));
-			float lowerZ = convertTextureInt(from.getInt(2));
-			float upperX = convertTextureInt(to.getInt(0));
-			float upperY = convertTextureInt(to.getInt(1));
-			float upperZ = convertTextureInt(to.getInt(2));
-			JSONObject faces = currentElement.optJSONObject("faces");
-			TextureLocation textureLocs[] = new TextureLocation[RenderableBox.renderableSides.length];
-			BlockFace cullSides[] = new BlockFace[RenderableBox.renderableSides.length];
-			for (String faceKey : faces.keySet()) {
-				JSONObject face = faces.getJSONObject(faceKey);
-				String textureLocString = face.getString("texture");
-				TextureLocation textureLoc = resolveTexture(textureLocString, textureMap, textureRemapping);
-				BlockFace currSide = BlockFace.parse(key);
-				String cullFaceString = face.optString("cullface");
-				BlockFace cullSide;
-				if (cullFaceString != null) {
-					cullSide = BlockFace.parse(cullFaceString);
-				}
-				else {
-					cullSide = null;
-				}
-				textureLocs [currSide.ordinal()] = textureLoc;
-				cullSides [currSide.ordinal()] = cullSide;
-			}
-			RenderableBox rendBox = new RenderableBox(lowerX, lowerY, lowerZ, upperX, upperY, upperZ, cullSides, textureLocs);
-			boxList.add(rendBox);
-		}
-		this.boxes = (RenderableBox []) boxList.toArray();
-	}
-	
-	public void render(FloatBuffer coords, FloatBuffer textureCoords, boolean [] cullFaces) {
-		for(RenderableBox box : boxes) {
-			box.render(coords, textureCoords, cullFaces);
-		}
-	}
-
-	private TextureLocation resolveTexture(String key, Map<String, TextureLocation> textureMapping,
-			Map<String, String> textureRemapping) {
-		while (key.startsWith("#")) {
-			// cycles are gonna deadlock this, but fixing that is for later
-			key = textureRemapping.get(key.substring(1, key.length()));
-		}
-		return textureMapping.get(key);
-	}
-
-	private float convertTextureInt(int step) {
-		return ((float) step) / 16f;
-	}
-
-	private Map<String, String> parseTextureRemapping(JSONObject json) {
-		Map<String, String> remapping = new HashMap<>();
-		for (String key : json.keySet()) {
-			String value = json.optString(key);
-			if (value == null) {
-				// ignore
+			String [] keyValSplit = part.split("=");
+			if (keyValSplit.length != 2) {
+				//TODO error reporting
 				continue;
 			}
-			remapping.put(key, value);
+			enumList.add(parseEnum(identifier, keyValSplit[0], keyValSplit[1]));
+
 		}
-		return remapping;
+		if (state != null) {
+		return state.getMetaData(enumList);
+		}
+		return 0;
+	}
+
+	private Enum parseEnum(String identifier, String key, String value) {
+		switch (key.toLowerCase()) {
+		case "half":
+			return BlockHalfEnum.parse(value);
+		case "facing":
+			return BlockFace.parse(value);
+		case "shape":
+			return StairShapeEnum.parse(value);
+
+		}
+
+		System.out.println(identifier + ", Key: " + key + "   " + value);
+		return null;
+	}
+
+	private RendBlockState parseBlockStateVariant(JSONObject json) {
+		String model = json.getString("model");
+		int x = json.optInt("x", 0);
+		int y = json.optInt("y", 0);
+		boolean uvLock = json.optBoolean("uvlock", false);
+		int weight = json.optInt("weight", 1);
+		return new RendBlockState(model, x, y, uvLock, weight);
+	}
+
+	private class RendBlockState {
+		String model;
+		int x;
+		int y;
+		boolean uvLock;
+		int weight;
+
+		RendBlockState(String model, int x, int y, boolean uvLock, int weight) {
+			this.model = model;
+			this.x = x;
+			this.y = y;
+			this.uvLock = uvLock;
+			this.weight = weight;
+		}
 	}
 }

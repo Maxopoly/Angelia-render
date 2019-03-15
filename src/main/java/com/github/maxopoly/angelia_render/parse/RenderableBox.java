@@ -64,11 +64,12 @@ public class RenderableBox {
 		compressArrays();
 	}
 
-	public void render(FloatBuffer coords, FloatBuffer textureCoords, boolean[] cullFaces) {
+	public void render(List <float []> coordsToAdd, List <float []> texCoordsToAdd, boolean[] cullFaces, int [] floatCounter) {
 		for (int i = 0; i < this.coords.length; i++) {
 			if ((cullSides[i] != null && cullFaces[cullSides[i].ordinal()]) || cullSides[i] == null) {
-				coords.put(this.coords[i]);
-				textureCoords.put(this.textureCoords[i]);
+				coordsToAdd.add(this.coords[i]);
+				texCoordsToAdd.add(this.textureCoords[i]);
+				floatCounter [0] += this.coords [i].length;
 			}
 		}
 	}
